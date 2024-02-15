@@ -26,7 +26,7 @@
 
 #include <memory>
 
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 
 SCENARIO("Client must check an existing remote resources", "[check]")
 {
