@@ -28,6 +28,8 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <chrono>
+#include <optional>
 
 namespace WebDAV
 {
@@ -41,6 +43,21 @@ namespace WebDAV
 
   using strings_t = std::vector<std::string>;
   using dict_t = std::map<std::string, std::string>;
+
+  using timepoint = std::chrono::system_clock::time_point;
+
+  class resource {
+  public:
+      std::string href;
+      std::optional<std::string> display_name;
+      std::optional<unsigned long long> size;
+      std::optional<timepoint> modified;
+      std::optional<timepoint> created;
+      std::optional<std::string> type;
+      std::optional<std::string> etag;
+
+      friend std::ostream &operator<<(std::ostream &os, const resource &resource);
+  };
 
   ///
   /// \brief WebDAV Client
@@ -85,7 +102,7 @@ namespace WebDAV
     /// \param[in] remote_resource
     /// \include client/info.cpp
     ///
-    auto info(const std::string& remote_resource) const -> dict_t;
+    auto info(const std::string& remote_resource) const -> std::optional<resource>;
 
     ///
     /// Clean an remote resource

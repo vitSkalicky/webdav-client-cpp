@@ -28,11 +28,14 @@
 #include "pugiext.hpp"
 #include "request.hpp"
 #include "urn.hpp"
+#include "utils.hpp"
 
 #include <boost/lexical_cast.hpp>
 
 #include <algorithm>
 #include <thread>
+#include <optional>
+#include <chrono>
 
 namespace WebDAV
 {
@@ -417,7 +420,7 @@ namespace WebDAV
     return request.perform();
   }
 
-  dict_t
+  std::optional<resource>
   Client::info(const std::string& remote_resource) const
   {
     auto root_urn = Path(this->webdav_root, true);
@@ -445,7 +448,7 @@ namespace WebDAV
 #endif
     bool is_performed = request.perform();
 
-    if (!is_performed) return dict_t{};
+    if (!is_performed) return {};
 
     pugi::xml_document document;
     document.load_buffer(data.buffer, static_cast<size_t>(data.size));
@@ -475,29 +478,31 @@ namespace WebDAV
         auto content_length = prop.select_node("*[local-name()='getcontentlength']").node();
         auto modified_date = prop.select_node("*[local-name()='getlastmodified']").node();
         auto resource_type = prop.select_node("*[local-name()='resourcetype']").node();
+        auto etag = prop.select_node("*[local-name()='getetag']").node();
 
-        dict_t information =
-        {
-          { "created", creation_date.first_child().value() },
-          { "name", display_name.first_child().value() },
-          { "size", content_length.first_child().value() },
-          { "modified", modified_date.first_child().value() },
-          { "type", resource_type.first_child().name() }
+        resource resource{
+            .href = href.value(), //todo remove root_urn prefix
+            .display_name =  std::string{display_name.value()}, //todo does value do whai I want
+            .size = std::stoll(content_length.value()),
+            .modified = utils::parse_tp_rfc2616(modified_date.value()),
+            .created = utils::parse_tp_rfc2616(creation_date.value()),
+            .type = resource_type.first_child().name(), //todo error check
+            .etag = etag.value()
         };
 
-        return information;
+        return resource;
       }
     }
 
-    return dict_t{};
+    return {};
   }
 
   bool
   Client::is_directory(const std::string& remote_resource) const
   {
     auto information = this->info(remote_resource);
-    auto resource_type = information["type"];
-    bool is_dir = resource_type == "d:collection" || resource_type == "D:collection";
+    auto resource_type = information->type;
+    bool is_dir = resource_type.has_value() && (resource_type.value() == "d:collection" || resource_type == "D:collection");
     return is_dir;
   }
 
@@ -790,6 +795,27 @@ namespace WebDAV
       curl_global_cleanup();
     }
   };
+
+    std::ostream &operator<<(std::ostream &os, const resource &resource) {
+        os << "href: " << resource.href;
+        os << " display_name: " << resource.display_name.value_or("(none)");
+        os << " size: ";
+        if (resource.size.has_value()) os << resource.size.value();
+        else os << "(none)";
+        os << " modified: ";
+        if (resource.modified.has_value()) os << resource.modified.value();
+        else os << "(none)";
+        os << " created: ";
+        if (resource.created.has_value()) os << resource.created.value();
+        else os << "(none)";
+        os << " type: ";
+        if (resource.type.has_value()) os << resource.type.value();
+        else os << "(none)";
+        os << " etag: ";
+        if (resource.etag.has_value()) os << resource.etag.value();
+        else os << "(none)";
+        return os;
+    }
 } // namespace WebDAV
 
 static const WebDAV::Environment env;
