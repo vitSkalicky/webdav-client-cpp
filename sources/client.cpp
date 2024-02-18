@@ -420,6 +420,41 @@ namespace WebDAV
     return request.perform();
   }
 
+  std::optional<resource> resource_from_xml_node(const pugi::xml_node &node){
+      //todo handle errors
+      pugi::xml_node href = node.select_node("*[local-name()='href']").node();
+      std::string encode_file_name = href.first_child().value();
+      std::string resource_path = curl_unescape(encode_file_name.c_str(), static_cast<int>(encode_file_name.length()));
+
+      auto propstat = node.select_node("*[local-name()='propstat']").node();
+      auto prop = propstat.select_node("*[local-name()='prop']").node();
+      auto creation_date = prop.select_node("*[local-name()='creationdate']").node();
+      auto display_name = prop.select_node("*[local-name()='displayname']").node();
+      auto content_length = prop.select_node("*[local-name()='getcontentlength']").node();
+      auto modified_date = prop.select_node("*[local-name()='getlastmodified']").node();
+      auto resource_type = prop.select_node("*[local-name()='resourcetype']").node();
+      auto etag = prop.select_node("*[local-name()='getetag']").node();
+
+      std::optional<long long> size = {};
+      try {
+          size = std::stoll(content_length.text().get());
+      }catch (std::invalid_argument &ignored){}
+
+      // todo none instead of empty strings if tag missing
+
+      resource resource{
+              .href = href.text().get(), //todo remove root_urn prefix
+              .display_name =  std::string{display_name.text().get()}, //todo does value do whai I want
+              .size = size,
+              .modified = utils::parse_tp_rfc2616(modified_date.text().get()),
+              .created = utils::parse_tp_rfc2616(creation_date.text().get()),
+              .type = resource_type.first_child().name(), //todo error check
+              .etag = etag.text().get()
+      };
+
+      return resource;
+  }
+
   std::optional<resource>
   Client::info(const std::string& remote_resource) const
   {
@@ -459,45 +494,19 @@ namespace WebDAV
     auto responses = multistatus.select_nodes("*[local-name()='response']");
     for (auto response : responses)
     {
-      pugi::xml_node href = response.node().select_node("*[local-name()='href']").node();
-      std::string encode_file_name = href.first_child().value();
-      std::string resource_path = curl_unescape(encode_file_name.c_str(), static_cast<int>(encode_file_name.length()));
-      auto target_path = target_urn.path();
-      auto target_path_without_sep = target_path;
+      auto resource_opt = resource_from_xml_node(response.node());
+      if (!resource_opt.has_value()) continue;
+      resource res = resource_opt.value();
+      std::string target_path = target_urn.path();
+      std::string target_path_without_sep = target_path;
       if (!target_path_without_sep.empty() && target_path_without_sep.back() == '/')
         target_path_without_sep.resize(target_path_without_sep.length() - 1);
-      auto resource_path_without_sep = resource_path;
+      std::string resource_path_without_sep = res.href;
       if (!resource_path_without_sep.empty() && resource_path_without_sep.back() == '/')
         resource_path_without_sep.resize(resource_path_without_sep.length() - 1);
       if (resource_path_without_sep == target_path_without_sep)
       {
-        auto propstat = response.node().select_node("*[local-name()='propstat']").node();
-        auto prop = propstat.select_node("*[local-name()='prop']").node();
-        auto creation_date = prop.select_node("*[local-name()='creationdate']").node();
-        auto display_name = prop.select_node("*[local-name()='displayname']").node();
-        auto content_length = prop.select_node("*[local-name()='getcontentlength']").node();
-        auto modified_date = prop.select_node("*[local-name()='getlastmodified']").node();
-        auto resource_type = prop.select_node("*[local-name()='resourcetype']").node();
-        auto etag = prop.select_node("*[local-name()='getetag']").node();
-
-        std::optional<long long> size = {};
-        try {
-            size = std::stoll(content_length.text().get());
-        }catch (std::invalid_argument &ignored){}
-
-        // todo none instead of empty strings if tag missing
-
-        resource resource{
-            .href = href.text().get(), //todo remove root_urn prefix
-            .display_name =  std::string{display_name.text().get()}, //todo does value do whai I want
-            .size = size,
-            .modified = utils::parse_tp_rfc2616(modified_date.text().get()),
-            .created = utils::parse_tp_rfc2616(creation_date.text().get()),
-            .type = resource_type.first_child().name(), //todo error check
-            .etag = etag.text().get()
-        };
-
-        return resource;
+        return res;
       }
     }
 
@@ -513,12 +522,9 @@ namespace WebDAV
     return is_dir;
   }
 
-  strings_t
+  std::optional<resources_t>
   Client::list(const std::string& remote_directory) const
   {
-    bool is_existed = this->check(remote_directory);
-    if (!is_existed) return strings_t{};
-
     auto target_urn = Path(this->webdav_root, true) + remote_directory;
     target_urn = Path(target_urn.path(), true);
 
@@ -546,9 +552,9 @@ namespace WebDAV
 
     bool is_performed = request.perform();
 
-    if (!is_performed) return strings_t{};
+    if (!is_performed) return {};
 
-    strings_t resources;
+    resources_t resources;
 
     pugi::xml_document document;
     document.load_buffer(data.buffer, static_cast<size_t>(data.size));
@@ -556,13 +562,9 @@ namespace WebDAV
     auto responses = multistatus.select_nodes("*[local-name()='response']");
     for (auto response : responses)
     {
-      pugi::xml_node href = response.node().select_node("*[local-name()='href']").node();
-      std::string encode_file_name = href.first_child().value();
-      std::string resource_path = curl_unescape(encode_file_name.c_str(), static_cast<int>(encode_file_name.length()));
-      auto target_path = target_urn.path();
-      Path resource_urn(resource_path);
-      if (resource_urn == target_urn) continue;
-      resources.push_back(resource_urn.name());
+      auto res = resource_from_xml_node(response.node());
+      if (!res.has_value()) continue;
+      resources.emplace_back(std::move(res.value()));
     }
 
     return resources;

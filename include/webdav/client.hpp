@@ -59,6 +59,8 @@ namespace WebDAV
       friend std::ostream &operator<<(std::ostream &os, const resource &resource);
   };
 
+  using resources_t = std::vector<resource>;
+
   ///
   /// \brief WebDAV Client
   /// \author designerror
@@ -118,11 +120,11 @@ namespace WebDAV
     auto is_directory(const std::string& remote_resource) const -> bool;
 
     ///
-    /// List a remote directory
+    /// List a remote directory. The list contains metadata for all the children and the directory itself too.
     /// \param[in] remote_directory
     /// \include client/list.cpp
     ///
-    auto list(const std::string& remote_directory = "") const -> strings_t;
+    auto list(const std::string& remote_directory = "") const -> std::optional<resources_t>;
 
     ///
     /// Create a remote directory
