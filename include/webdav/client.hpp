@@ -269,6 +269,7 @@ namespace WebDAV
       progress_t progress = nullptr
     ) const -> void;
 
+      std::string get_root(){ return webdav_root; }
   private:
 
     auto sync_download(
