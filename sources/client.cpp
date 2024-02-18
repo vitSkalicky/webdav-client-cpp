@@ -480,14 +480,21 @@ namespace WebDAV
         auto resource_type = prop.select_node("*[local-name()='resourcetype']").node();
         auto etag = prop.select_node("*[local-name()='getetag']").node();
 
+        std::optional<long long> size = {};
+        try {
+            size = std::stoll(content_length.text().get());
+        }catch (std::invalid_argument &ignored){}
+
+        // todo none instead of empty strings if tag missing
+
         resource resource{
-            .href = href.value(), //todo remove root_urn prefix
-            .display_name =  std::string{display_name.value()}, //todo does value do whai I want
-            .size = std::stoll(content_length.value()),
-            .modified = utils::parse_tp_rfc2616(modified_date.value()),
-            .created = utils::parse_tp_rfc2616(creation_date.value()),
+            .href = href.text().get(), //todo remove root_urn prefix
+            .display_name =  std::string{display_name.text().get()}, //todo does value do whai I want
+            .size = size,
+            .modified = utils::parse_tp_rfc2616(modified_date.text().get()),
+            .created = utils::parse_tp_rfc2616(creation_date.text().get()),
             .type = resource_type.first_child().name(), //todo error check
-            .etag = etag.value()
+            .etag = etag.text().get()
         };
 
         return resource;
@@ -501,8 +508,8 @@ namespace WebDAV
   Client::is_directory(const std::string& remote_resource) const
   {
     auto information = this->info(remote_resource);
-    auto resource_type = information->type;
-    bool is_dir = resource_type.has_value() && (resource_type.value() == "d:collection" || resource_type == "D:collection");
+    std::optional<std::string> resource_type = information.has_value() ? information->type : std::optional<std::string>{};
+    bool is_dir = resource_type.has_value() && (resource_type.value() == "d:collection" || resource_type.value() == "D:collection");
     return is_dir;
   }
 

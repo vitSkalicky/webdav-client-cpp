@@ -34,6 +34,7 @@ namespace utils {
         std::stringstream ss(inp);
 
         //todo use the timezone, so far it is ignored
+        // todo properly return none if invalid
 
         for (auto&& format : formats) {
             ss >> std::get_time(&tm, format.c_str());
