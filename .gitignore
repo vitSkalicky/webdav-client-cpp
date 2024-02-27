@@ -17,3 +17,5 @@
 /.cmake
 /Testing/Temporary
 /generated
+/libwdc.a
+/WDC.cbp
