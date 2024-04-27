@@ -69,11 +69,6 @@ namespace WebDAV
       while (is_find);
     }
 
-    Path::Path(std::nullptr_t)
-    {
-      m_path = nullptr;
-    }
-
     auto Path::path() const -> string
     {
       return m_path;

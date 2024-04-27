@@ -62,7 +62,8 @@ SCENARIO("Client must list a remote files and a remote directories", "[list]")
 
       THEN("Get 10 resources")
       {
-        CHECK(resources.size() == 10);
+        CHECK(resources.has_value());
+        CHECK(resources->size() == 10);
       }
     }
   }
@@ -92,7 +93,8 @@ SCENARIO("Client can not list a remote file", "[list][file]")
 
       THEN("Get an empty list")
       {
-        CHECK(resources.empty());
+        CHECK(resources.has_value());
+        CHECK(resources->empty());
       }
     }
   }
@@ -121,7 +123,8 @@ SCENARIO("Client can list an empty remote directory", "[list][empty]")
 
       THEN("Get an empty list")
       {
-        CHECK(resources.empty());
+        CHECK(resources.has_value());
+        CHECK(resources->empty());
       }
     }
   }

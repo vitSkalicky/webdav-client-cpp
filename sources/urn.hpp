@@ -39,7 +39,6 @@ namespace WebDAV
     public:
 
       explicit Path(const string& path_, bool force_dir = false);
-      explicit Path(nullptr_t);
 
       auto operator+(const std::string& rhs) const -> Path;
       auto operator==(const Path& rhs) const -> bool;
