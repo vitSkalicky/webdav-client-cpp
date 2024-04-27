@@ -60,10 +60,10 @@ SCENARIO("Client must list a remote files and a remote directories", "[list]")
     {
       auto resources = client->list(root);
 
-      THEN("Get 10 resources")
+      THEN("Get 10 resources + the directory itself")
       {
         CHECK(resources.has_value());
-        CHECK(resources->size() == 10);
+        CHECK(resources->size() == (10 + 1));
       }
     }
   }
@@ -91,10 +91,10 @@ SCENARIO("Client can not list a remote file", "[list][file]")
 
       auto resources = client->list(existing_file);
 
-      THEN("Get an empty list")
+      THEN("Get only the file")
       {
         CHECK(resources.has_value());
-        CHECK(resources->empty());
+        CHECK(resources->size() == 1);
       }
     }
   }
@@ -121,10 +121,10 @@ SCENARIO("Client can list an empty remote directory", "[list][empty]")
 
       auto resources = client->list(empty_directory);
 
-      THEN("Get an empty list")
+      THEN("Get only the directory itself")
       {
         CHECK(resources.has_value());
-        CHECK(resources->empty());
+        CHECK(resources->size() == 1);
       }
     }
   }

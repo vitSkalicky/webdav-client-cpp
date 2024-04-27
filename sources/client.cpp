@@ -522,6 +522,7 @@ namespace WebDAV
     return is_dir;
   }
 
+  /** Resources include the directory itself. Check the path.*/
   std::optional<resources_t>
   Client::list(const std::string& remote_directory) const
   {
@@ -587,7 +588,7 @@ namespace WebDAV
     progress_t progress
   ) const
   {
-    std::thread downloading([ = ]()
+    std::thread downloading([ =, this ]()
     {
       this->sync_download(remote_file, local_file, callback, std::move(progress));
     });
@@ -735,7 +736,7 @@ namespace WebDAV
     progress_t progress
   ) const
   {
-    std::thread uploading([ = ]()
+    std::thread uploading([ =, this ]()
     {
       this->sync_upload(remote_file, local_file, callback, std::move(progress));
     });
