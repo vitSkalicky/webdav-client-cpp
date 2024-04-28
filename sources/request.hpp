@@ -26,15 +26,46 @@
 #include <curl/curl.h>
 #include <map>
 #include <string>
+#include "webdav/client.hpp"
 
 namespace WebDAV
 {
-  bool inline check_code(CURLcode code)
+  enum OtherError{
+    OTHER_OK,
+    OTHER_MISSING_HANDLE,
+  };
+  bool inline check_curl_code(CURLcode code)
   {
     return code == CURLE_OK;
   }
+  bool inline check_http_code(long http_code)
+  {
+    return http_code >= 200 && http_code < 300;
+  }
+  bool inline check_other_error(OtherError err){
+    return err == OTHER_OK;
+  }
 
   using dict_t = std::map<std::string, std::string>;
+
+  struct RequestResult
+  {
+      CURLcode curlCode;
+      OtherError otherError;
+      long httpCode;
+
+
+      bool is_success()
+      {
+        return check_curl_code(curlCode) && check_http_code(httpCode) && check_other_error(otherError);
+      }
+      std::optional<WebDAV::error> to_error(){
+        if(!check_curl_code(curlCode)) return curl_error{curlCode};
+        if(!check_other_error(otherError)) return unspecified_error{};
+        if(!check_http_code(httpCode)) return http_error{httpCode};
+        return {}; //not an error
+      }
+  };
 
   class Request
   {
@@ -51,10 +82,11 @@ namespace WebDAV
     auto set(CURLoption option, T value) const noexcept -> bool
     {
       if (this->handle == nullptr) return false;
-      return check_code(curl_easy_setopt(this->handle, option, value));
+      return check_curl_code(curl_easy_setopt(this->handle, option, value));
     }
 
-    bool perform() const noexcept;
+
+    RequestResult perform() const noexcept;
     void* handle;
 
   private:

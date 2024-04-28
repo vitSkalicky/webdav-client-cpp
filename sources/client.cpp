@@ -67,7 +67,7 @@ namespace WebDAV
     };
   }
 
-  bool
+  WebDAV::expected<void>
   Client::sync_download(
     const std::string& remote_file,
     const std::string& local_file,
@@ -75,9 +75,6 @@ namespace WebDAV
     progress_t progress
   ) const
   {
-    bool is_existed = this->check(remote_file);
-    if (!is_existed) return false;
-
     auto root_urn = Path(this->webdav_root, true);
     auto file_urn = root_urn + remote_file;
 
@@ -101,13 +98,16 @@ namespace WebDAV
       request.set(CURLOPT_NOPROGRESS, 0L);
     }
 
-    bool is_performed = request.perform();
+    RequestResult rr = request.perform();
 
-    if (callback != nullptr) callback(is_performed);
-    return is_performed;
+    WebDAV::expected<void> exp = {};
+    if(!rr.is_success()) exp = std::unexpected(*rr.to_error());
+
+    if (callback != nullptr) callback(exp);
+    return exp;
   }
 
-  bool
+  WebDAV::expected<void>
   Client::sync_download_to(
     const std::string& remote_file,
     char*& buffer_ptr,
@@ -116,9 +116,6 @@ namespace WebDAV
     progress_t progress
   ) const
   {
-    bool is_existed = this->check(remote_file);
-    if (!is_existed) return false;
-
     auto root_urn = Path(this->webdav_root, true);
     auto file_urn = root_urn + remote_file;
 
@@ -142,17 +139,21 @@ namespace WebDAV
       request.set(CURLOPT_NOPROGRESS, 0L);
     }
 
-    bool is_performed = request.perform();
-    if (callback != nullptr) callback(is_performed);
-    if (!is_performed) return false;
+    RequestResult rr = request.perform();
+
+    WebDAV::expected<void> exp = {};
+    if(!rr.is_success()) exp = std::unexpected(*rr.to_error());
+
+    if (callback != nullptr) callback(exp);
+    if (!exp.has_value()) return exp;
 
     buffer_ptr = data.buffer;
     buffer_size = data.size;
     data.reset();
-    return true;
+    return exp;
   }
 
-  bool
+  WebDAV::expected<void>
   Client::sync_download_to(
     const std::string& remote_file,
     std::ostream& stream,
@@ -160,9 +161,6 @@ namespace WebDAV
     progress_t progress
   ) const
   {
-    bool is_existed = this->check(remote_file);
-    if (!is_existed) return false;
-
     auto root_urn = Path(this->webdav_root, true);
     auto file_urn = root_urn + remote_file;
 
@@ -184,22 +182,29 @@ namespace WebDAV
       request.set(CURLOPT_NOPROGRESS, 0L);
     }
 
-    bool is_performed = request.perform();
-    if (callback != nullptr) callback(is_performed);
+    RequestResult rr = request.perform();
 
-    return is_performed;
+    WebDAV::expected<void> exp = {};
+    if(!rr.is_success()) exp = std::unexpected(*rr.to_error());
+
+    if (callback != nullptr) callback(exp);
+    return exp;
   }
 
-  bool
+  WebDAV::upload_expected
   Client::sync_upload(
     const std::string& remote_file,
     const std::string& local_file,
-    callback_t callback,
+    upload_callback_t callback,
     progress_t progress
   ) const
   {
     bool is_existed = FileInfo::exists(local_file);
-    if (!is_existed) return false;
+    if (!is_existed){
+      auto exp = std::unexpected{local_file_not_found{}};
+      callback(exp);
+      return exp;
+    }
 
     auto root_urn = Path(this->webdav_root, true);
     auto file_urn = root_urn + remote_file;
@@ -230,13 +235,16 @@ namespace WebDAV
       request.set(CURLOPT_NOPROGRESS, 0L);
     }
 
-    bool is_performed = request.perform();
+    RequestResult rr = request.perform();
 
-    if (callback != nullptr) callback(is_performed);
-    return is_performed;
+    WebDAV::upload_expected exp = {};
+    if(!rr.is_success()) exp = std::unexpected(utils::variant_cast(*rr.to_error()));
+
+    if (callback != nullptr) callback(exp);
+    return exp;
   }
 
-  bool
+  WebDAV::expected<void>
   Client::sync_upload_from(
     const std::string& remote_file,
     char* buffer_ptr,
@@ -273,15 +281,17 @@ namespace WebDAV
       request.set(CURLOPT_NOPROGRESS, 0L);
     }
 
-    bool is_performed = request.perform();
+    RequestResult rr = request.perform();
 
-    if (callback != nullptr) callback(is_performed);
+    WebDAV::expected<void> exp = {};
+    if(!rr.is_success()) exp = std::unexpected(*rr.to_error());
 
+    if (callback != nullptr) callback(exp);
     data.reset();
-    return is_performed;
+    return exp;
   }
 
-  bool
+  WebDAV::expected<void>
   Client::sync_upload_from(
     const std::string& remote_file,
     std::istream& stream,
@@ -318,10 +328,13 @@ namespace WebDAV
       request.set(CURLOPT_NOPROGRESS, 0L);
     }
 
-    bool is_performed = request.perform();
+    RequestResult rr = request.perform();
 
-    if (callback != nullptr) callback(is_performed);
-    return is_performed;
+    WebDAV::expected<void> exp = {};
+    if(!rr.is_success()) exp = std::unexpected(*rr.to_error());
+
+    if (callback != nullptr) callback(exp);
+    return exp;
   }
 
   Client::Client(const dict_t& options)
@@ -339,7 +352,7 @@ namespace WebDAV
     this->key_path = get(options, "key_path");
   }
 
-  unsigned long long
+  WebDAV::expected<unsigned long long>
   Client::free_size() const
   {
     Header header =
@@ -375,8 +388,8 @@ namespace WebDAV
     request.set(CURLOPT_VERBOSE, 1);
 #endif
 
-    auto is_performed = request.perform();
-    if (!is_performed) return 0;
+    RequestResult rr = request.perform();
+    if (!rr.is_success()) return std::unexpected(*rr.to_error());
 
     document.load_buffer(data.buffer, static_cast<size_t>(data.size));
 
@@ -390,7 +403,7 @@ namespace WebDAV
     return boost::lexical_cast<unsigned long long>(free_size_text);
   }
 
-  bool
+  WebDAV::expected<bool>
   Client::check(const std::string& remote_resource) const
   {
     auto root_urn = Path(this->webdav_root, true);
@@ -417,7 +430,10 @@ namespace WebDAV
     request.set(CURLOPT_VERBOSE, 1);
 #endif
 
-    return request.perform();
+    RequestResult rr = request.perform();
+    if (rr.is_success()) return true;
+    if (rr.httpCode == 404) return false;
+    return std::unexpected(*rr.to_error());
   }
 
   std::optional<resource> resource_from_xml_node(const pugi::xml_node &node){
@@ -455,7 +471,7 @@ namespace WebDAV
       return resource;
   }
 
-  std::optional<resource>
+  WebDAV::expected<resource>
   Client::info(const std::string& remote_resource) const
   {
     auto root_urn = Path(this->webdav_root, true);
@@ -481,9 +497,9 @@ namespace WebDAV
 #ifdef WDC_VERBOSE
     request.set(CURLOPT_VERBOSE, 1);
 #endif
-    bool is_performed = request.perform();
+    RequestResult rr = request.perform();
 
-    if (!is_performed) return {};
+    if (!rr.is_success()) return std::unexpected(*rr.to_error());
 
     pugi::xml_document document;
     document.load_buffer(data.buffer, static_cast<size_t>(data.size));
@@ -510,20 +526,21 @@ namespace WebDAV
       }
     }
 
-    return {};
+    return std::unexpected(unspecified_error{}); //this should not happen if the server behaves correctly
   }
 
-  bool
+  WebDAV::expected<bool>
   Client::is_directory(const std::string& remote_resource) const
   {
     auto information = this->info(remote_resource);
-    std::optional<std::string> resource_type = information.has_value() ? information->type : std::optional<std::string>{};
+    if (!information.has_value()) return std::unexpected(information.error());
+    std::optional<std::string> resource_type = information->type;
     bool is_dir = resource_type.has_value() && (resource_type.value() == "d:collection" || resource_type.value() == "D:collection");
     return is_dir;
   }
 
   /** Resources include the directory itself. Check the path.*/
-  std::optional<resources_t>
+  WebDAV::expected<resources_t>
   Client::list(const std::string& remote_directory) const
   {
     auto target_urn = Path(this->webdav_root, true) + remote_directory;
@@ -551,9 +568,9 @@ namespace WebDAV
     request.set(CURLOPT_VERBOSE, 1);
 #endif
 
-    bool is_performed = request.perform();
+    RequestResult rr = request.perform();
 
-    if (!is_performed) return {};
+    if (!rr.is_success()) return std::unexpected(*rr.to_error());
 
     resources_t resources;
 
@@ -571,7 +588,7 @@ namespace WebDAV
     return resources;
   }
 
-  bool Client::download(
+    WebDAV::expected<void> Client::download(
     const std::string& remote_file,
     const std::string& local_file,
     progress_t progress
@@ -588,14 +605,14 @@ namespace WebDAV
     progress_t progress
   ) const
   {
-    std::thread downloading([ =, this ]()
+    std::thread downloading{[ =, this ]()
     {
-      this->sync_download(remote_file, local_file, callback, std::move(progress));
-    });
+      auto _ = this->sync_download(remote_file, local_file, callback, std::move(progress));
+    }};
     downloading.detach();
   }
 
-  bool
+  WebDAV::expected<void>
   Client::download_to(
     const std::string& remote_file,
     char*& buffer_ptr,
@@ -606,7 +623,7 @@ namespace WebDAV
     return this->sync_download_to(remote_file, buffer_ptr, buffer_size, nullptr, std::move(progress));
   }
 
-  bool
+    WebDAV::expected<void>
   Client::download_to(
     const std::string& remote_file,
     std::ostream& stream,
@@ -616,21 +633,22 @@ namespace WebDAV
     return this->sync_download_to(remote_file, stream, nullptr, std::move(progress));
   }
 
-  bool
+  WebDAV::expected<void>
   Client::create_directory(const std::string& remote_directory, bool recursive) const
   {
-    bool is_existed = this->check(remote_directory);
-    if (is_existed) return true;
+    auto is_existed = this->check(remote_directory);
+    if (!is_existed.has_value()) return std::unexpected(is_existed.error());
+    if (is_existed.value()) return {};
 
     bool resource_is_dir = true;
     Path directory_urn(remote_directory, resource_is_dir);
 
-    if (recursive)
-    {
+    if (recursive){
       auto remote_parent_directory = directory_urn.parent().path();
-      if (remote_parent_directory == remote_directory) return false;
-      bool is_created = this->create_directory(remote_parent_directory, true);
-      if (!is_created) return false;
+      if (remote_parent_directory != remote_directory){
+        auto res = this->create_directory(remote_parent_directory, true);
+        if (!res.has_value()) return std::unexpected(res.error());
+      };
     }
 
     Header header =
@@ -653,15 +671,14 @@ namespace WebDAV
     request.set(CURLOPT_VERBOSE, 1);
 #endif
 
-    return request.perform();
+    RequestResult rr = request.perform();
+    if (!rr.is_success()) return std::unexpected(*rr.to_error());
+    return {};
   }
 
-  bool
+  WebDAV::expected<void>
   Client::move(const std::string& remote_source_resource, const std::string& remote_destination_resource) const
   {
-    bool is_existed = this->check(remote_source_resource);
-    if (!is_existed) return false;
-
     Path root_urn(this->webdav_root, true);
 
     auto source_resource_urn = root_urn + remote_source_resource;
@@ -684,15 +701,14 @@ namespace WebDAV
     request.set(CURLOPT_VERBOSE, 1);
 #endif
 
-    return request.perform();
+    RequestResult rr = request.perform();
+    if (!rr.is_success()) return std::unexpected(*rr.to_error());
+    return {};
   }
 
-  bool
+    WebDAV::expected<void>
   Client::copy(const std::string& remote_source_resource, const std::string& remote_destination_resource) const
   {
-    bool is_existed = this->check(remote_source_resource);
-    if (!is_existed) return false;
-
     Path root_urn(this->webdav_root, true);
 
     auto source_resource_urn = root_urn + remote_source_resource;
@@ -715,10 +731,12 @@ namespace WebDAV
     request.set(CURLOPT_VERBOSE, 1);
 #endif
 
-    return request.perform();
+    RequestResult rr = request.perform();
+    if (!rr.is_success()) return std::unexpected(*rr.to_error());
+    return {};
   }
 
-  bool
+  WebDAV::upload_expected
   Client::upload(
     const std::string& remote_file,
     const std::string& local_file,
@@ -732,7 +750,7 @@ namespace WebDAV
   Client::async_upload(
     const std::string& remote_file,
     const std::string& local_file,
-    callback_t callback,
+    upload_callback_t callback,
     progress_t progress
   ) const
   {
@@ -743,7 +761,7 @@ namespace WebDAV
     uploading.detach();
   }
 
-  bool
+  WebDAV::expected<void>
   Client::upload_from(
     const std::string& remote_file,
     std::istream& stream,
@@ -753,7 +771,7 @@ namespace WebDAV
     return this->sync_upload_from(remote_file, stream, nullptr, std::move(progress));
   }
 
-  bool
+  WebDAV::expected<void>
   Client::upload_from(
     const std::string& remote_file,
     char* buffer_ptr,
@@ -764,12 +782,9 @@ namespace WebDAV
     return this->sync_upload_from(remote_file, buffer_ptr, buffer_size, nullptr, std::move(progress));
   }
 
-  bool
+  WebDAV::expected<void>
   Client::clean(const std::string& remote_resource) const
   {
-    bool is_existed = this->check(remote_resource);
-    if (!is_existed) return true;
-
     auto root_urn = Path(this->webdav_root, true);
     auto resource_urn = root_urn + remote_resource;
 
@@ -790,7 +805,9 @@ namespace WebDAV
     request.set(CURLOPT_VERBOSE, 1);
 #endif
 
-    return request.perform();
+    RequestResult rr = request.perform();
+    if (!rr.is_success()) return std::unexpected(*rr.to_error());
+    return {};
   }
 
   class Environment

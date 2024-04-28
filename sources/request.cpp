@@ -121,15 +121,14 @@ namespace WebDAV
     return *this;
   }
 
-  bool Request::perform() const noexcept
+  RequestResult Request::perform() const noexcept
   {
-    if (this->handle == nullptr) return false;
-    auto is_performed = check_code(curl_easy_perform(this->handle));
-    if (!is_performed) return false;
+    if (this->handle == nullptr) return RequestResult{CURLE_OK,OTHER_MISSING_HANDLE, 0};
+    CURLcode curlcode = curl_easy_perform(this->handle);
+    if (!check_curl_code(curlcode)) return RequestResult{curlcode, OTHER_OK, 0};
     long http_code = 0;
     curl_easy_getinfo(this->handle, CURLINFO_RESPONSE_CODE, &http_code);
-    if (http_code < 200 || http_code > 299) return false;
-    return true;
+    return RequestResult{curlcode, OTHER_OK, http_code};
   }
 
   bool Request::proxy_enabled() const noexcept
