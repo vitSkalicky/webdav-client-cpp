@@ -23,6 +23,7 @@
 #include <webdav/client.hpp>
 
 #include "fixture.hpp"
+#include "test_helpers.h"
 
 #include <catch2/catch.hpp>
 
@@ -50,27 +51,27 @@ SCENARIO("Client must clean an existing remote resources", "[clean]")
 
     WHEN("Clean an existing remote file")
     {
-      REQUIRE(client->check(existing_file));
+      REQUIRE(client->check(existing_file).value());
 
-      auto is_success = client->clean(existing_file);
+      WebDAV::expected<void> result = client->clean(existing_file);
 
       THEN("The file is cleaning")
       {
-        CHECK(is_success);
-        CHECK_FALSE(client->check(existing_file));
+        CHECK(result.has_value());
+        CHECK_FALSE(client->check(existing_file).value());
       }
     }
 
     WHEN("Clean an existing directory")
     {
-      REQUIRE(client->check(existing_directory));
+      REQUIRE(client->check(existing_directory).value());
 
       auto is_success = client->clean(existing_directory);
 
       THEN("The directory is cleaning")
       {
-        CHECK(is_success);
-        CHECK_FALSE(client->check(existing_directory));
+        CHECK(is_success.has_value());
+        CHECK_FALSE(client->check(existing_directory).value());
       }
     }
   }
@@ -89,27 +90,27 @@ SCENARIO("Client must clean not an existing remote resources", "[clean]")
 
     WHEN("Clean not an existing remote file")
     {
-      REQUIRE_FALSE(client->check(not_existing_file));
+      REQUIRE_FALSE(client->check(not_existing_file).value());
 
-      auto is_success = client->clean(not_existing_file);
+      auto result = client->clean(not_existing_file);
 
       THEN("The file is cleaning")
       {
-        CHECK(is_success);
-        CHECK_FALSE(client->check(not_existing_file));
+        CHECK(result.transform_error(is_not_found).error_or(false));
+        CHECK_FALSE(client->check(not_existing_file).value());
       }
     }
 
     WHEN("Clean not an existing directory")
     {
-      REQUIRE_FALSE(client->check(not_existing_directory));
+      REQUIRE_FALSE(client->check(not_existing_directory).value());
 
-      auto is_success = client->clean(not_existing_directory);
+      auto result = client->clean(not_existing_directory);
 
       THEN("The directory is cleaning")
       {
-        CHECK(is_success);
-        CHECK_FALSE(client->check(not_existing_directory));
+        CHECK(result.transform_error(is_not_found).error_or(false));
+        CHECK_FALSE(client->check(not_existing_directory).value());
       }
     }
   }
@@ -137,19 +138,19 @@ SCENARIO("Client must clean not an empty remote directories", "[clean]")
 
     WHEN("Clean not an empty directory")
     {
-      REQUIRE(client->check(not_empty_directory));
-      REQUIRE(client->check(attached_file));
-      REQUIRE(client->check(attached_directory));
+      REQUIRE(client->check(not_empty_directory).value());
+      REQUIRE(client->check(attached_file).value());
+      REQUIRE(client->check(attached_directory).value());
 
-      auto is_success = client->clean(not_empty_directory);
+      auto result = client->clean(not_empty_directory);
 
-      REQUIRE(is_success);
+      REQUIRE(result.has_value());
 
       THEN("The directory and the attached resources are cleaning")
       {
-        CHECK_FALSE(client->check(not_empty_directory));
-        CHECK_FALSE(client->check(attached_file));
-        CHECK_FALSE(client->check(attached_directory));
+        CHECK_FALSE(client->check(not_empty_directory).value());
+        CHECK_FALSE(client->check(attached_file).value());
+        CHECK_FALSE(client->check(attached_directory).value());
       }
     }
   }
@@ -171,15 +172,15 @@ SCENARIO("Client must clean a remote directory", "[clean]")
 
     WHEN("Clean directory by a name")
     {
-      REQUIRE(client->check(directory_name));
+      REQUIRE(client->check(directory_name).value());
 
-      auto is_success = client->clean(directory_name);
+      auto result = client->clean(directory_name);
 
-      REQUIRE(is_success);
+      REQUIRE(result.has_value());
 
       THEN("The directory is cleaning")
       {
-        CHECK_FALSE(client->check(directory_name));
+        CHECK_FALSE(client->check(directory_name).value());
       }
     }
   }

@@ -23,6 +23,7 @@
 #include <webdav/client.hpp>
 
 #include "fixture.hpp"
+#include "test_helpers.h"
 
 #include <catch2/catch.hpp>
 
@@ -49,16 +50,16 @@ SCENARIO("Client must upload buffer", "[upload][buffer]")
 
     WHEN("Upload the buffer")
     {
-      REQUIRE(client->clean(remote_resource));
-      REQUIRE(!client->check(remote_resource));
+      REQUIRE(client->clean(remote_resource).transform_error(is_not_found).error_or(true));
+      REQUIRE(!client->check(remote_resource).value());
 
-      auto is_success = client->upload_from(remote_resource, buffer_pointer, buffer_size);
+      auto result = client->upload_from(remote_resource, buffer_pointer, buffer_size);
 
       THEN("buffer must be uploaded")
       {
 
-        CHECK(is_success);
-        CHECK(client->check(remote_resource));
+        CHECK(result.has_value());
+        CHECK(client->check(remote_resource).value());
       }
     }
   }
@@ -81,15 +82,15 @@ SCENARIO("Client must upload string stream", "[upload][string][stream]")
 
     WHEN("Upload the stream")
     {
-      REQUIRE(client->clean(remote_resource));
-      REQUIRE(!client->check(remote_resource));
+      REQUIRE(client->clean(remote_resource).transform_error(is_not_found).error_or(true));
+      REQUIRE(!client->check(remote_resource).value());
 
-      auto is_success = client->upload_from(remote_resource, stream);
+      auto result = client->upload_from(remote_resource, stream);
 
       THEN("stream must be uploaded")
       {
-        CHECK(is_success);
-        CHECK(client->check(remote_resource));
+        CHECK(result.has_value());
+        CHECK(client->check(remote_resource).value());
       }
     }
   }
@@ -115,15 +116,15 @@ SCENARIO("Client must upload file stream", "[upload][file][stream]")
 
     WHEN("Upload the stream")
     {
-      REQUIRE(client->clean(remote_resource));
-      REQUIRE(!client->check(remote_resource));
+      REQUIRE(client->clean(remote_resource).transform_error(is_not_found).error_or(true));
+      REQUIRE(!client->check(remote_resource).value());
 
-      auto is_success = client->upload_from(remote_resource, in);
+      auto result = client->upload_from(remote_resource, in);
 
       THEN("stream must be uploaded")
       {
-        CHECK(is_success);
-        CHECK(client->check(remote_resource));
+        CHECK(result.has_value());
+        CHECK(client->check(remote_resource).value());
       }
     }
   }

@@ -23,6 +23,7 @@
 #include <webdav/client.hpp>
 
 #include "fixture.hpp"
+#include "test_helpers.h"
 
 #include <catch2/catch.hpp>
 
@@ -44,8 +45,8 @@ SCENARIO("Client must list a remote files and a remote directories", "[list]")
     std::string template_filename = "file";
     std::string template_dirname = "dir";
 
-    CHECK(client->clean(root));
-    REQUIRE(client->create_directory(root));
+    CHECK(client->clean(root).transform_error(is_not_found).error_or(true));
+    REQUIRE(client->create_directory(root).has_value());
 
     for (auto i = 1; i <= 5; ++i)
     {
@@ -87,7 +88,7 @@ SCENARIO("Client can not list a remote file", "[list][file]")
 
     WHEN("List content of the file")
     {
-      REQUIRE(client->check(existing_file));
+      REQUIRE(client->check(existing_file).value());
 
       auto resources = client->list(existing_file);
 
@@ -117,7 +118,7 @@ SCENARIO("Client can list an empty remote directory", "[list][empty]")
 
     WHEN("List content of the directory")
     {
-      REQUIRE(client->check(empty_directory));
+      REQUIRE(client->check(empty_directory).value());
 
       auto resources = client->list(empty_directory);
 

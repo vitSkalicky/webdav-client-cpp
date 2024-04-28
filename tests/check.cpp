@@ -23,6 +23,7 @@
 #include <webdav/client.hpp>
 
 #include "fixture.hpp"
+#include "test_helpers.h"
 
 #include <memory>
 
@@ -50,25 +51,25 @@ SCENARIO("Client must check an existing remote resources", "[check]")
 
     WHEN("Check for existence of an existing remote file")
     {
-      REQUIRE(client->check(existing_file));
+      REQUIRE(client->check(existing_file).value_or(false));
 
-      auto is_success = client->check(existing_file);
+      WebDAV::expected<bool> is_success = client->check(existing_file);
 
       THEN("Check must be success")
       {
-        CHECK(is_success);
+        CHECK(is_success.value_or(false));
       }
     }
 
     WHEN("Check for existence of an existing remote directory")
     {
-      REQUIRE(client->check(existing_directory));
+      REQUIRE(client->check(existing_directory).value_or(false));
 
-      auto is_success = client->check(existing_directory);
+      WebDAV::expected<bool> is_success = client->check(existing_directory);
 
       THEN("The directory is cleaning")
       {
-        CHECK(is_success);
+        CHECK(is_success.value_or(false));
       }
     }
   }
@@ -87,26 +88,30 @@ SCENARIO("Client must check not an existing remote resources", "[check]")
 
     WHEN("Check for existence of not an existing remote file")
     {
-      REQUIRE(client->clean(not_existing_file));
+      REQUIRE(client->clean(not_existing_file)
+        .transform_error(is_not_found)
+        .error_or(false));
 
-      auto is_success = client->check(not_existing_file);
+      WebDAV::expected<bool> is_success = client->check(not_existing_file);
 
       THEN("Check must be not success")
       {
 
-        CHECK_FALSE(is_success);
+        CHECK_FALSE(is_success.value());
       }
     }
 
-    WHEN("Check for existence of an existing remote directory")
+    WHEN("Check for existence of not an existing remote directory")
     {
-      REQUIRE(client->clean(not_existing_directory));
+      REQUIRE(client->clean(not_existing_directory)
+        .transform_error([](auto && err){return std::get<WebDAV::http_error>(err).code == 404;})
+        .error_or(false));
 
-      auto is_success = client->check(not_existing_directory);
+      WebDAV::expected<bool> is_success = client->check(not_existing_directory);
 
       THEN("Check must be not success")
       {
-        CHECK_FALSE(is_success);
+        CHECK_FALSE(is_success.value());
       }
     }
   }

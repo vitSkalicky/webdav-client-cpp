@@ -47,18 +47,18 @@ SCENARIO("Client must download into buffer", "[download][buffer]")
     auto buffer_pointer = const_cast<char*>(source_buffer.c_str());
     unsigned long long buffer_size = (source_buffer.length() + 1) * sizeof(source_buffer.c_str()[0]);
 
-    auto is_success = client->upload_from(remote_resource, buffer_pointer, buffer_size);
-    REQUIRE(is_success);
+    auto result = client->upload_from(remote_resource, buffer_pointer, buffer_size);
+    REQUIRE(result.has_value());
 
     WHEN("Download into the buffer")
     {
-      REQUIRE(client->check(remote_resource));
+      REQUIRE(client->check(remote_resource).value());
 
-      auto is_success = client->download_to(remote_resource, buffer_pointer, buffer_size);
+      auto result = client->download_to(remote_resource, buffer_pointer, buffer_size);
 
       THEN("buffer must be downloaded")
       {
-        CHECK(is_success);
+        CHECK(result.has_value());
         std::string destination_buffer(buffer_pointer);
         CHECK(destination_buffer == source_buffer);
       }
@@ -83,18 +83,18 @@ SCENARIO("Client must download stream", "[download][stream]")
     std::stringstream source_stream(content);
     std::string remote_resource = filename;
 
-    auto is_success = client->upload_from(remote_resource, source_stream);
-    REQUIRE(is_success);
+    auto result = client->upload_from(remote_resource, source_stream);
+    REQUIRE(result.has_value());
 
     WHEN("Upload the stream")
     {
-      REQUIRE(client->check(remote_resource));
+      REQUIRE(client->check(remote_resource).value());
 
-      auto is_success = client->download_to(remote_resource, destination_stream);
+      auto result = client->download_to(remote_resource, destination_stream);
 
       THEN("stream must be uploaded")
       {
-        CHECK(is_success);
+        CHECK(result.has_value());
 
         std::string source_buffer = source_stream.str();
         std::string destination_buffer = source_stream.str();
