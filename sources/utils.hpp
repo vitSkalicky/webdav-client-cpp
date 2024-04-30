@@ -8,6 +8,8 @@
 #include <chrono>
 #include <string>
 
+#define UNUSED(expr) do { (void)(expr); } while (0)
+
 namespace utils {
     std::optional<std::chrono::system_clock::time_point> parse_tp_rfc2616(const std::string &input){
         const std::string rfc822_1 = "%a, %d %b %Y %H:%M:%S";
@@ -25,6 +27,7 @@ namespace utils {
         size_t last_space = inp.rfind(' ', inp.length());
         std::string tz_str = inp.substr(last_space + 1, inp.length() - last_space - 1);
         const std::chrono::time_zone *tz_ptr = nullptr;
+        UNUSED(tz_ptr);
         try {
             tz_ptr = std::chrono::locate_zone(tz_str);
             inp = inp.substr(0, last_space);
