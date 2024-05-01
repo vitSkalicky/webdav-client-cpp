@@ -440,7 +440,9 @@ namespace WebDAV
       //todo handle errors
       pugi::xml_node href = node.select_node("*[local-name()='href']").node();
       std::string encode_file_name = href.first_child().value();
-      std::string resource_path = curl_unescape(encode_file_name.c_str(), static_cast<int>(encode_file_name.length()));
+      char* unescaped = curl_unescape(encode_file_name.c_str(), static_cast<int>(encode_file_name.length())); //allocates new memory
+      std::string resource_path{unescaped}; //data is copied
+      free(unescaped);
 
       auto propstat = node.select_node("*[local-name()='propstat']").node();
       auto prop = propstat.select_node("*[local-name()='prop']").node();
