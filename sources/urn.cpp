@@ -78,7 +78,7 @@ namespace WebDAV
     {
       char * escaped = curl_easy_escape(request, name.c_str(), static_cast<int>(name.length())); // allocates new memory
       string path{escaped}; // this copies the data
-      free(escaped); // must free the memory
+      curl_free(escaped); // must free the memory
       return path;
     }
 
